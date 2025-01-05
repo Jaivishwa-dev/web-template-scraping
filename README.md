@@ -114,7 +114,7 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 For any questions or issues, feel free to contact:
 
-- Email: jaivishwa05@gmail.com
+- Email: jaivishwa.dev@gmail.com
 - GitHub: [jaivishwaj](https://github.com/jaivishwaj)
 
 ---
