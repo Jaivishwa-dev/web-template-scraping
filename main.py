@@ -1,5 +1,4 @@
 import os
-import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -9,6 +8,7 @@ visited_urls = set()  # Track visited URLs to avoid duplicates
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
+
 
 def save_file(url, folder):
     """Downloads a file and saves it to the specified folder."""
@@ -28,6 +28,7 @@ def save_file(url, folder):
     except Exception as e:
         print(f"Error saving file {url}: {e}")
 
+
 def scrape_page(url, base_url, output_folder):
     """Scrapes a single page and its assets."""
     if url in visited_urls:
@@ -39,12 +40,13 @@ def scrape_page(url, base_url, output_folder):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Save the main HTML file
+        # Define the templates folder
+        templates_folder = os.path.join(output_folder, "templates")
+        os.makedirs(templates_folder, exist_ok=True)
+
+        # Save the main HTML file in the templates folder
         relative_path = urlparse(url).path.lstrip("/").replace("/", "_") or "index.html"
-        page_folder = os.path.join(output_folder, os.path.dirname(relative_path))
-        os.makedirs(page_folder, exist_ok=True)
-        with open(os.path.join(page_folder, os.path.basename(relative_path)), "w", encoding="utf-8") as f:
-            f.write(soup.prettify())
+        html_file_path = os.path.join(templates_folder, os.path.basename(relative_path))
 
         # Static folder definitions
         static_folders = {
@@ -54,7 +56,7 @@ def scrape_page(url, base_url, output_folder):
             "fonts": os.path.join(output_folder, "static", "fonts"),
         }
 
-        # Download assets (CSS, JS, Images, Fonts)
+        # Fix asset paths in HTML
         for tag, attr, folder_key in [
             ("link", "href", "css"),
             ("script", "src", "js"),
@@ -65,7 +67,15 @@ def scrape_page(url, base_url, output_folder):
                 asset_url = element.get(attr)
                 if asset_url:
                     full_url = urljoin(url, asset_url)
+                    asset_file_name = os.path.basename(urlparse(full_url).path)
+                    new_path = f"../static/{folder_key}/{asset_file_name}"
+                    element[attr] = new_path  # Update path in HTML
                     save_file(full_url, static_folders[folder_key])
+
+        # Save the modified HTML
+        with open(html_file_path, "w", encoding="utf-8") as f:
+            f.write(soup.prettify())
+        print(f"Saved HTML: {html_file_path}")
 
         # Recursively scrape internal links
         for a_tag in soup.find_all("a", href=True):
@@ -79,16 +89,24 @@ def scrape_page(url, base_url, output_folder):
     except requests.RequestException as e:
         print(f"Error scraping page {url}: {e}")
 
-def scrape_website(base_url, output_folder):
+
+def scrape_website(base_url):
     """Scrapes the entire website, including all pages and assets."""
+    folder_name = input("Enter the folder name to save the website: ").strip()
+
+    if not folder_name:
+        print("Invalid folder name! Using default domain-based name.")
+        folder_name = urlparse(base_url).netloc.replace(".", "_")
+
+    output_folder = os.path.join(os.getcwd(), folder_name)
+
     try:
         scrape_page(base_url, base_url, output_folder)
         print(f"Website scraping completed. Files saved in: {output_folder}")
     except Exception as e:
-
         print(f"Error scraping website: {e}")
+
 
 if __name__ == "__main__":
     website_url = input("Enter the website URL: ").strip()
-    folder_name = urlparse(website_url).netloc.replace(".", "_")
-    scrape_website(website_url, folder_name)
+    scrape_website(website_url)
